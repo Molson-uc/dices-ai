@@ -1,9 +1,11 @@
+import base64
 import io
 import math
 from collections import defaultdict
 
 from fastapi import UploadFile
-from PIL import Image
+from PIL import Image, ImageFont
+from PIL.ImageDraw import ImageDraw
 from PIL.ImageFile import ImageFile
 from ultralytics import YOLO
 
@@ -72,3 +74,24 @@ def normal_distribution(
         std = math.sqrt(variance)
         distributions.append(NormalDistribution(dice_name=dice_number, std=std, count=count))
     return distributions
+
+
+async def draw_boxes(detections: list[DiceDetection], file: UploadFile) -> Image.Image:
+    image = await convert_image(file)
+    draw = ImageDraw(image)
+
+    for detection in detections:
+        box = detection.box
+        coordinates = [box.x1, box.y1, box.x2, box.y2]
+        draw.rectangle(coordinates, outline="red", width=4)
+        text = f"{detection.name} - {detection.confidence:.2f}"
+        font = ImageFont.load_default(size=20.0)
+        draw.text((box.x1, box.y1), text, fill="white", font=font)
+    return image
+
+
+async def image_to_base64(image: Image.Image):
+    buffer = io.BytesIO()
+    image = image.convert("RGB")
+    image.save(buffer, format="JPEG")
+    return base64.b64encode(buffer.getvalue()).decode("utf-8")

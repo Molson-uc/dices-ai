@@ -47,3 +47,15 @@ async def stats(
     return templates.TemplateResponse(
         request=request, name="stats.html", context={"total_images": len(files), "total_dices": total_dices}
     )
+
+
+@router.post("/dices/check")
+async def check(request: Request, file: UploadFile, model: Annotated[YOLO, Depends(get_model)]) -> HTMLResponse:
+    validation_result = await img_validator.validate_image(file)
+    if not validation_result["valid"]:
+        raise HTTPException(status_code=400, detail=f"Image is not valid: {validation_result['errors']}")
+
+    detection = await service.detect_dices(file, model)
+    image = await service.draw_boxes(detection, file)
+    image_base64 = await service.image_to_base64(image)
+    return templates.TemplateResponse(request=request, name="check.html", context={"image_base64": image_base64})
