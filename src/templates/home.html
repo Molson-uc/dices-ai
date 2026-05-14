@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Dice Detection — Upload{% endblock %}
+
+{% block style %}
+    p.sub { color: #888; margin-bottom: 2rem; font-size: 0.95rem; }
+    form {
+        background: #16213e;
+        border-radius: 12px;
+        padding: 2rem;
+        width: 100%;
+        max-width: 500px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    label {
+        font-size: 0.95rem;
+        font-weight: 500;
+    }
+    .drop-zone {
+        border: 2px dashed #0f3460;
+        border-radius: 8px;
+        padding: 2rem;
+        text-align: center;
+        cursor: pointer;
+        transition: border-color 0.2s, background 0.2s;
+        position: relative;
+    }
+    .drop-zone:hover,
+    .drop-zone.dragover {
+        border-color: #e94560;
+        background: rgba(233, 69, 96, 0.05);
+    }
+    .drop-zone input[type="file"] {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+    }
+    .drop-zone .icon { font-size: 2rem; margin-bottom: 0.5rem; }
+    .drop-zone .hint { color: #888; font-size: 0.85rem; }
+    .file-list {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+    .file-list li {
+        background: rgba(255,255,255,0.05);
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .file-list li .size { color: #888; }
+    button[type="submit"] {
+        background: #e94560;
+        color: #fff;
+        border: none;
+        padding: 0.85rem;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    button[type="submit"]:hover { background: #c73652; }
+    button[type="submit"]:disabled {
+        background: #444;
+        cursor: not-allowed;
+    }
+{% endblock %}
+
+{% block content %}
+    <h1>Dice Detection</h1>
+    <p class="sub">Upload dice images to see their normal distribution</p>
+
+    <form action="/dices/stats" method="post" enctype="multipart/form-data">
+        <h3>Check normal distribution for your dices</h3>
+        <label>Select images</label>
+        <div class="drop-zone">
+            <input type="file" name="files" accept="image/*" multiple required>
+            <div class="icon">&#128190;</div>
+            <div>Drag &amp; drop images here or click to browse</div>
+            <div class="hint">JPG, PNG — multiple files allowed</div>
+        </div>
+        <ul class="file-list"></ul>
+        <button type="submit" disabled>Upload &amp; Analyze</button>
+    </form>
+
+    <form action="/dices/boxes" method="post" enctype="multipart/form-data">
+        <h3>Check if model can recognize your dices</h3>
+        <label>Select image</label>
+        <div class="drop-zone">
+            <input type="file" name="file" accept="image/*" required>
+            <div class="icon">&#128190;</div>
+            <div>Drag &amp; drop image here or click to browse</div>
+            <div class="hint">JPG, PNG — single file</div>
+        </div>
+        <ul class="file-list"></ul>
+        <button type="submit" disabled>Check recognition</button>
+    </form>
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        document.querySelectorAll("form").forEach((form) => {
+            const dropZone = form.querySelector(".drop-zone");
+            const fileInput = form.querySelector("input[type='file']");
+            const fileList = form.querySelector(".file-list");
+            const submitBtn = form.querySelector("button[type='submit']");
+
+            function formatSize(bytes) {
+                if (bytes < 1024) return bytes + " B";
+                if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
+                return (bytes / 1048576).toFixed(1) + " MB";
+            }
+
+            function updateFileList() {
+                fileList.innerHTML = "";
+                submitBtn.disabled = fileInput.files.length === 0;
+                for (const file of fileInput.files) {
+                    const li = document.createElement("li");
+                    li.innerHTML = `<span>${file.name}</span><span class="size">${formatSize(file.size)}</span>`;
+                    fileList.appendChild(li);
+                }
+            }
+
+            fileInput.addEventListener("change", updateFileList);
+
+            dropZone.addEventListener("dragover", (e) => {
+                e.preventDefault();
+                dropZone.classList.add("dragover");
+            });
+            dropZone.addEventListener("dragleave", () => {
+                dropZone.classList.remove("dragover");
+            });
+            dropZone.addEventListener("drop", (e) => {
+                e.preventDefault();
+                dropZone.classList.remove("dragover");
+                fileInput.files = e.dataTransfer.files;
+                updateFileList();
+            });
+        });
+    </script>
+{% endblock %}

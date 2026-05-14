@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %} Dice Detection - Statistics{% endblock %}
+{% set average_dice = total_dices / total_images if total_images > 0 else 0 %}
+{% block content %}
+    <h1>Statistics</h1>
+    <p class="sub">Summary of all uploaded images and detected dice.</p>
+    <div class="stats">
+        <p>Total Images Uploaded: {{ total_images }}</p>
+        <p>Total Dice Detected: {{ total_dices }}</p>
+        <p>Average Dice per Image: {{ average_dice }}</p>
+    </div>
+{% endblock %}
