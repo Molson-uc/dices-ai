@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %} Dice Detection - Distribution{% endblock %}
+{% block style %}
+    .sub { color: #aaa; margin-bottom: 1.5rem; }
+    .chart-wrap {
+        width: min(90vw, 800px);
+        background: #232340;
+        padding: 1.5rem;
+        border-radius: 8px;
+    }
+    table {
+        margin-top: 1.5rem;
+        border-collapse: collapse;
+        width: min(90vw, 800px);
+        background: #232340;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    th, td { padding: 0.6rem 1rem; text-align: left; border-bottom: 1px solid #333355; }
+    th { background: #2a2a4a; font-weight: 500; }
+    tr:last-child td { border-bottom: none; }
+{% endblock %}
+{% block content %}
+    <h1>Dice Distribution</h1>
+    <p class="sub">Counts per face with fitted normal distribution.</p>
+
+    <div class="chart-wrap">
+        <canvas id="distChart"></canvas>
+    </div>
+
+    <table>
+        <thead>
+            <tr><th>Dice</th><th>Count</th><th>Std</th></tr>
+        </thead>
+        <tbody>
+            {% for d in distributions %}
+                <tr>
+                    <td>{{ d.dice_name }}</td>
+                    <td>{{ d.count }}</td>
+                    <td>{{ "%.3f"|format(d.std) }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}
+{% block scripts %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script id="dist-data" type="application/json">{{ distributions | tojson }}</script>
+    <script>
+        const raw = JSON.parse(document.getElementById('dist-data').textContent);
+        const items = raw
+            .map(d => ({ x: parseFloat(d.dice_name), count: d.count, std: d.std }))
+            .filter(d => Number.isFinite(d.x))
+            .sort((a, b) => a.x - b.x);
+
+        const total = items.reduce((s, d) => s + d.count, 0);
+        const mean = total > 0 ? items.reduce((s, d) => s + d.x * d.count, 0) / total : 0;
+        const variance = total > 0
+            ? items.reduce((s, d) => s + d.count * (d.x - mean) ** 2, 0) / total
+            : 0;
+        const sigma = Math.sqrt(variance) || 1;
+
+        const minX = Math.min(...items.map(d => d.x)) - 1;
+        const maxX = Math.max(...items.map(d => d.x)) + 1;
+        const steps = 100;
+        const stepSize = (maxX - minX) / steps;
+        const curve = [];
+        for (let i = 0; i <= steps; i++) {
+            const x = minX + i * stepSize;
+            const pdf = Math.exp(-0.5 * ((x - mean) / sigma) ** 2) / (sigma * Math.sqrt(2 * Math.PI));
+            curve.push({ x, y: pdf * total });
+        }
+
+        const ctx = document.getElementById('distChart').getContext('2d');
+        new Chart(ctx, {
+            data: {
+                datasets: [
+                    {
+                        type: 'bar',
+                        label: 'Count',
+                        data: items.map(d => ({ x: d.x, y: d.count })),
+                        backgroundColor: 'rgba(120, 160, 255, 0.6)',
+                        borderColor: 'rgba(120, 160, 255, 1)',
+                        borderWidth: 1,
+                    },
+                    {
+                        type: 'line',
+                        label: `Gaussian (μ=${mean.toFixed(2)}, σ=${sigma.toFixed(2)})`,
+                        data: curve,
+                        borderColor: 'rgba(255, 140, 100, 1)',
+                        backgroundColor: 'rgba(255, 140, 100, 0.15)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: true,
+                        tension: 0.3,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: { type: 'linear', title: { display: true, text: 'Dice face' }, ticks: { color: '#ccc' }, grid: { color: '#333355' } },
+                    y: { title: { display: true, text: 'Count' }, ticks: { color: '#ccc' }, grid: { color: '#333355' }, beginAtZero: true },
+                },
+                plugins: {
+                    legend: { labels: { color: '#eee' } },
+                },
+            },
+        });
+    </script>
+{% endblock %}

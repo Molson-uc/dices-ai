@@ -39,7 +39,6 @@ async def detect_dices(file: UploadFile, model: YOLO) -> list[DiceDetection]:
                     ),
                 )
             )
-    print(f"Detection results for {file.filename}: {len(file_detections)} dice detected")
     return file_detections
 
 
@@ -83,9 +82,13 @@ async def draw_boxes(detections: list[DiceDetection], file: UploadFile) -> Image
     for detection in detections:
         box = detection.box
         coordinates = [box.x1, box.y1, box.x2, box.y2]
+        font = ImageFont.load_default(size=20.0)
         draw.rectangle(coordinates, outline="red", width=4)
         text = f"{detection.name} - {detection.confidence:.2f}"
-        font = ImageFont.load_default(size=20.0)
+        text_bbox = draw.textbbox((box.x1, box.y1), text, font=font)
+        text_h = text_bbox[3] - text_bbox[1]
+        text_w = text_bbox[2] - text_bbox[0]
+        draw.rectangle((box.x1 + 4, box.y1 + 4, box.x1 + text_w, box.y1 + text_h + 7), fill="green")
         draw.text((box.x1, box.y1), text, fill="white", font=font)
     return image
 
