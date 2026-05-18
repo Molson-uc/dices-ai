@@ -58,7 +58,7 @@
         const variance = total > 0
             ? items.reduce((s, d) => s + d.count * (d.x - mean) ** 2, 0) / total
             : 0;
-        const sigma = Math.sqrt(variance) || 1;
+        const sigma = Math.sqrt(d.variance) || 1;
 
         const minX = Math.min(...items.map(d => d.x)) - 1;
         const maxX = Math.max(...items.map(d => d.x)) + 1;

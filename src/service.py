@@ -9,17 +9,30 @@ from PIL.ImageDraw import ImageDraw
 from PIL.ImageFile import ImageFile
 from ultralytics import YOLO
 
-from schemas import BoundingBox, DiceDetection, NormalDistribution
+from schemas import BoundingBox, DiceDetection, DiceStatistics
 
 
-async def convert_image(file: UploadFile) -> ImageFile:
+async def _convert_image(file: UploadFile) -> ImageFile:
     await file.seek(0)
     img_bytes = await file.read()
     return Image.open(io.BytesIO(img_bytes))
 
 
 async def detect_dices(file: UploadFile, model: YOLO) -> list[DiceDetection]:
-    image = await convert_image(file)
+    """
+    Detect dices on uploaded file using YOLO model.
+
+    The file is converted to compability format. Detections are saved to list of ``DiceDetection``
+    objects containing the detected dice class, name, bounding box and confidence score.
+
+    Args:
+        file (UploadFile): Uploaded image file.
+        model (YOLO): Initialized YOLO model
+
+    Returns:
+        list[DiceDetection]: List of detected dices represented as ``DiceDetection``
+    """
+    image = await _convert_image(file)
     results = model(image)
 
     file_detections: list[DiceDetection] = []
@@ -42,18 +55,30 @@ async def detect_dices(file: UploadFile, model: YOLO) -> list[DiceDetection]:
     return file_detections
 
 
-def count_mean(dices_nr_sum: dict) -> float:
+def _compute_mean(dices_nr_sum: dict) -> float:
     total = sum(dices_nr_sum.values())
     if total > 0:
         return sum(int(k) * v for k, v in dices_nr_sum.items()) / total
     return 0.0
 
 
-def count_dices(detections: list[list[DiceDetection]]) -> int:
+def total_dices(detections: list[list[DiceDetection]]) -> int:
     return sum(len(d) for d in detections)
 
 
-def count_same_dices(detections: list[list[DiceDetection]]) -> dict[str, int]:
+def _count_dices(detections: list[list[DiceDetection]]) -> dict[str, int]:
+    """
+    Count occurrences of detected dice grouped by dice name.
+
+    Args:
+        detections (list[list[DiceDetection]]): A nested list containing ``DiceDetection`` objects,
+            typically grouped per processed image.
+
+    Returns:
+        dict[str, int]:  A dictionary where:
+            - key: dice name,
+            - value: number of occurrences of that dice.
+    """
     out = defaultdict(int)
     for results in detections:
         for detection in results:
@@ -61,22 +86,46 @@ def count_same_dices(detections: list[list[DiceDetection]]) -> dict[str, int]:
     return out
 
 
-def normal_distribution(
+def compute_dice_statistics(
     detections: list[list[DiceDetection]],
-) -> list[NormalDistribution]:
+) -> list[DiceStatistics]:
+    """
+    Compute variance, standard distribution and total dices for dice class.
+
+    Args:
+        detections (list[list[DiceDetection]]): A nested list containing ``DiceDetection`` objects,
+            typically grouped per processed image.
+
+    Returns:
+        list[DiceStatistics]: List of ``DiceStatistics``
+    """
     distributions = []
-    dices_count = count_dices(detections)
-    dice_number_count = count_same_dices(detections)
-    dices_count_mean = count_mean(dice_number_count)
+    dices_count = total_dices(detections)
+    dice_number_count = _count_dices(detections)
+    dices_count_mean = _compute_mean(dice_number_count)
     for dice_number, count in dice_number_count.items():
         variance = (count - dices_count_mean) ** 2 / dices_count
         std = math.sqrt(variance)
-        distributions.append(NormalDistribution(dice_name=dice_number, std=std, count=count))
+        distributions.append(DiceStatistics(dice_name=dice_number, variance=variance, std=std, count=count))
     return distributions
 
 
 async def draw_boxes(detections: list[DiceDetection], file: UploadFile) -> Image.Image:
-    image = await convert_image(file)
+    """
+    Draw bounding boxes and detection labels on uploaded image.
+
+    The uploaded image is converted into an editable PIL image and annotated
+    with bounding boxes, dice names, and confidence scores for each detected
+    dice.
+
+    Args:
+        detections (list[DiceDetection]): List containing ``DiceDetection`` objects.
+        file (UploadFile): Uploaded image file to annotate.
+
+    Returns:
+        Image.Image: PIL image instance with rendered bounding boxes and labels.
+    """
+    image = await _convert_image(file)
     draw = ImageDraw(image)
 
     for detection in detections:
@@ -93,7 +142,19 @@ async def draw_boxes(detections: list[DiceDetection], file: UploadFile) -> Image
     return image
 
 
-async def image_to_base64(image: Image.Image):
+async def image_to_base64(image: Image.Image) -> str:
+    """
+    Convert PIL image to to Base64 JPEG string.
+
+    The image is converted to RGB mode and serialized as a JPEG image
+    in memory before being encoded into a Base64 UTF-8 string.
+
+    Args:
+        image (Image.Image): PIL image instance to encode.
+
+    Returns:
+        str: Base64-encoded string representation of the JPEG image.
+    """
     buffer = io.BytesIO()
     image = image.convert("RGB")
     image.save(buffer, format="JPEG")
