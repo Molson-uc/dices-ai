@@ -15,8 +15,11 @@ dependencies = [
     "ultralytics>=8.4.23",
     "uvicorn>=0.42.0",
 ]
+
+[pytest]
 [tool.pytest.ini_options]
-pythonpath = ["."]
+testpaths = ["tests"]
+pythonpath = [".", "src"]
 
 [dependency-groups]
 dev = [
