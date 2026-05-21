@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %} Training {% endblock%}
+{% block content %}
+    <h1>Training</h1>
+    <p class="sub">Upload training data for the dice detection model.</p>
+    <form action="/training" method="post" enctype="multipart/form-data">
+        <div class="drop-zone">
+            <input type="file" name="files" accept="image/*" multiple required>
+            <div class="icon">&#128190;</div>
+            <div>Drag &amp; drop images and annotations here or click to browse</div>
+            <div class="hint">JPG, PNG — multiple files allowed</div>
+        </div>
+        <ul class="file-list"></ul>
+        <button type="submit" disabled>Upload &amp; Train</button>
+    </form>
+{% endblock%}
+
+{% block scripts %}
+    <script>
+        document.querySelectorAll("form").forEach((form) => {
+            const dropZone = form.querySelector(".drop-zone");
+            const fileInput = form.querySelector("input[type='file']");
+            const fileList = form.querySelector(".file-list");
+            const submitBtn = form.querySelector("button[type='submit']");
+
+            function formatSize(bytes) {
+                if (bytes < 1024) return bytes + " B";
+                if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
+                return (bytes / 1048576).toFixed(1) + " MB";
+            }
+
+            function updateFileList() {
+                fileList.innerHTML = "";
+                submitBtn.disabled = fileInput.files.length === 0;
+                for (const file of fileInput.files) {
+                    const li = document.createElement("li");
+                    li.innerHTML = `<span>${file.name}</span><span class="size">${formatSize(file.size)}</span>`;
+                    fileList.appendChild(li);
+                }
+            }
+
+            fileInput.addEventListener("change", updateFileList);
+
+            dropZone.addEventListener("dragover", (e) => {
+                e.preventDefault();
+                dropZone.classList.add("dragover");
+            });
+            dropZone.addEventListener("dragleave", () => {
+                dropZone.classList.remove("dragover");
+            });
+            dropZone.addEventListener("drop", (e) => {
+                e.preventDefault();
+                dropZone.classList.remove("dragover");
+                fileInput.files = e.dataTransfer.files;
+                updateFileList();
+            });
+        });
+    </script>
+{% endblock %}

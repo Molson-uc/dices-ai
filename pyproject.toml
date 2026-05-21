@@ -38,7 +38,6 @@ line-length = 120
 # Target Python version
 target-version = "py313"
 
-src = ["src"]
 
 [tool.ruff.lint]
 # Enable all rules by default, then explicitly disable specific ones
@@ -100,10 +99,10 @@ inline-quotes = "double"
 ban-relative-imports = "all"
 
 [tool.ty.environment]
-root = ["src"]
+root = ["."]
 
 [tool.ty.src]
-include = ["src"]
+include = ["."]
 
 [tool.ruff.lint.pyupgrade]
 keep-runtime-typing = true

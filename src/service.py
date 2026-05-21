@@ -9,13 +9,15 @@ from PIL.ImageDraw import ImageDraw
 from PIL.ImageFile import ImageFile
 from ultralytics import YOLO
 
-from schemas import BoundingBox, DiceDetection, DiceStatistics
+from src.schemas import BoundingBox, DiceDetection, DiceStatistics
 
 
-async def _convert_image(file: UploadFile) -> ImageFile:
+async def convert_image(file: UploadFile) -> ImageFile:
     await file.seek(0)
     img_bytes = await file.read()
-    return Image.open(io.BytesIO(img_bytes))
+    img = Image.open(io.BytesIO(img_bytes))
+    img.filename = file.filename
+    return img
 
 
 async def detect_dices(file: UploadFile, model: YOLO) -> list[DiceDetection]:
@@ -32,7 +34,7 @@ async def detect_dices(file: UploadFile, model: YOLO) -> list[DiceDetection]:
     Returns:
         list[DiceDetection]: List of detected dices represented as ``DiceDetection``
     """
-    image = await _convert_image(file)
+    image = await convert_image(file)
     results = model(image)
 
     file_detections: list[DiceDetection] = []
@@ -125,7 +127,7 @@ async def draw_boxes(detections: list[DiceDetection], file: UploadFile) -> Image
     Returns:
         Image.Image: PIL image instance with rendered bounding boxes and labels.
     """
-    image = await _convert_image(file)
+    image = await convert_image(file)
     draw = ImageDraw(image)
 
     for detection in detections:

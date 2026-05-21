@@ -9,8 +9,9 @@ wheels/
 # Virtual environments
 .venv
 
-# Model files
+# Static files
 model/
+uploads/
 
 # vscode settings
 .vscode/

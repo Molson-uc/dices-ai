@@ -1,4 +1,5 @@
 import asyncio
+from functools import lru_cache
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, UploadFile
@@ -7,15 +8,17 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from ultralytics import YOLO
 
-import service
-from config import settings
-from validator import ImageValidator
+from src import service
+from src.config import settings
+from src.storage import upload_file
+from src.validator import ImageValidator
 
 router = APIRouter()
 templates = Jinja2Templates(directory="src/templates/")
 img_validator = ImageValidator()
 
 
+@lru_cache(maxsize=1)
 def get_model() -> YOLO:
     """
     Load and return a YOLO model in evaluation mode.
@@ -141,3 +144,44 @@ async def check(request: Request, file: UploadFile, model: Annotated[YOLO, Depen
     image = await service.draw_boxes(detection, file)
     image_base64 = await service.image_to_base64(image)
     return templates.TemplateResponse(request=request, name="check.html", context={"image_base64": image_base64})
+
+
+@router.get("/training")
+async def training_page(request: Request) -> HTMLResponse:
+    """
+    Render the page used to submit a new training dataset.
+
+    Args:
+        request (Request): Incoming HTTP request, required by Jinja2 to render the template.
+
+    Returns:
+        HTMLResponse: Rendered ``training.html`` template.
+    """
+    return templates.TemplateResponse(request=request, name="training.html")
+
+
+@router.post("/training")
+async def upload_training_images(request: Request, files: list[UploadFile]) -> HTMLResponse:
+    """
+    Validate and persist uploaded training images to local storage.
+
+    Each file is validated, converted to a PIL image, and saved under ``settings.uploads_path``.
+    On success, a confirmation page is rendered.
+
+    Args:
+        request (Request): Incoming HTTP request, required by Jinja2 to render the template.
+        files (list[UploadFile]): Image files to add to the training dataset.
+
+    Raises:
+        HTTPException: 400 if any uploaded file fails image validation.
+
+    Returns:
+        HTMLResponse: Rendered ``train_confirm.html`` template confirming the upload.
+    """
+    for file in files:
+        result = await img_validator.validate_image(file)
+        if not result["valid"]:
+            raise HTTPException(status_code=400, detail=f"Image is not valid: {result['errors']}")
+        img = await service.convert_image(file)
+        upload_file(img)
+    return templates.TemplateResponse(request=request, name="train_confirm.html")

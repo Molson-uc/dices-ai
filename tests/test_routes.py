@@ -6,11 +6,12 @@ from typing import IO
 import pytest
 from fastapi import UploadFile
 from fastapi.testclient import TestClient
+from ultralytics import YOLO
+
 from src import routes
 from src.main import app
 from src.routes import get_model
 from src.schemas import BoundingBox, DiceDetection
-from ultralytics import YOLO
 
 FileUpload = list[tuple[str, tuple[str, IO[bytes], str]]]
 
